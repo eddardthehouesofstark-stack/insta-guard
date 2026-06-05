@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InstaGuard — Feed Analyzer</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .feed-layout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) { .feed-layout { grid-template-columns: 1fr; } }
+
+    .post-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .post-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .post-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+
+    .post-card.flagged { border-color: rgba(255,75,75,0.4); }
+    .post-card.review  { border-color: rgba(245,166,35,0.4); }
+    .post-card.safe    { border-color: rgba(0,212,170,0.2); }
+
+    .post-thumb {
+      width: 100%; height: 140px;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      position: relative;
+    }
+
+    .post-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    .post-score-pill {
+      position: absolute;
+      top: 8px; right: 8px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .post-meta { padding: 10px 12px; }
+    .post-caption { font-size: 12px; color: var(--text2); line-height: 1.4; margin-bottom: 6px; }
+    .post-date { font-size: 11px; color: var(--text3); }
+
+    .overall-score-ring {
+      width: 120px; height: 120px;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+
+    .overall-score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+
+    .ring-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .ring-label { font-size: 10px; color: var(--text3); font-family: 'DM Sans', sans-serif; font-weight: 400; margin-top: 2px; }
+
+    .reboot-zone {
+      margin-top: 20px;
+      padding: 16px;
+      background: rgba(255,75,75,0.06);
+      border: 1px solid rgba(255,75,75,0.2);
+      border-radius: var(--radius);
+      text-align: center;
+    }
+
+    .reboot-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--danger); margin-bottom: 6px; }
+    .reboot-sub { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .breakdown-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <nav class="nav" id="nav"></nav>
+  <main class="main">
+    <div class="container">
+      <div class="page-header fade-up">
+        <h1>Feed analyzer</h1>
+        <p>Analyze your Instagram feed content for safety and policy violations</p>
+      </div>
+
+      <!-- Instagram Username Input -->
+      <div class="card fade-up fade-up-d1" style="max-width: 600px; margin-bottom: 24px">
+        <div class="card-title">Instagram Account</div>
+        <div class="form-group">
+          <label class="form-label">Instagram Username</label>
+          <div style="display: flex; gap: 10px">
+            <input 
+              class="form-input" 
+              id="insta-feed-username" 
+              type="text" 
+              placeholder="@yourhandle or username"
+              style="flex: 1"
+            >
+            <button class="btn btn-primary" id="analyze-btn" onclick="runAnalysis()">
+              Analyze Feed
+            </button>
+          </div>
+          <div class="text-xs text-muted" style="margin-top: 8px">
+            Enter your Instagram username to analyze your feed content
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:24px" class="fade-up fade-up-d1">
+        <button class="btn btn-secondary" onclick="loadMockFeed()">Load demo feed</button>
+      </div>
+
+      <div class="feed-layout">
+        <!-- Posts grid -->
+        <div>
+          <div class="card fade-up fade-up-d2">
+            <div class="flex justify-between items-center mb-16">
+              <div class="card-title" style="margin-bottom:0">Feed posts</div>
+              <div id="feed-filter" style="display:none">
+                <select class="form-select" style="width:auto;font-size:13px;padding:6px 10px" onchange="filterPosts(this.value)">
+                  <option value="all">All posts</option>
+                  <option value="flagged">Flagged only</option>
+                  <option value="review">Review only</option>
+                  <option value="safe">Safe only</option>
+                </select>
+              </div>
+            </div>
+            <div class="post-grid" id="post-grid">
+              <div class="text-muted text-sm">Click "Analyze my feed" or load mock data to begin.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div>
+          <div class="card fade-up fade-up-d3" id="score-card">
+            <div class="card-title">Feed health</div>
+            <div class="overall-score-ring" id="score-ring">
+              <svg viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--surface2)" stroke-width="3"/>
+                <circle id="ring-fill" cx="18" cy="18" r="15.9" fill="none"
+                  stroke="var(--text3)" stroke-width="3"
+                  stroke-dasharray="0 100" stroke-linecap="round"
+                  style="transition: stroke-dasharray 0.8s cubic-bezier(.4,0,.2,1)"/>
+              </svg>
+              <div class="ring-text">
+                <span id="ring-score">--</span>
+                <span class="ring-label">/ 100</span>
+              </div>
+            </div>
+
+            <div id="breakdown"></div>
+
+            <div id="reboot-section" style="display:none" class="reboot-zone">
+              <div class="reboot-title">⚠️ Feed Reboot Recommended</div>
+              <div class="reboot-sub">Your feed contains content that violates safety policies.</div>
+              
+              <div style="margin-top: 12px; margin-bottom: 12px; padding: 12px; background: var(--bg3); border-radius: 8px; text-align: left">
+                <div style="font-size: 12px; color: var(--text2); margin-bottom: 8px">
+                  <strong>What is Feed Reboot?</strong>
+                </div>
+                <ul style="font-size: 11px; color: var(--text3); margin: 0; padding-left: 20px; line-height: 1.6">
+                  <li>Removes flagged harmful content from your feed</li>
+                  <li>Improves content recommendations</li>
+                  <li>Requires admin approval</li>
+                </ul>
+              </div>
+
+              <button class="btn btn-danger" id="reboot-btn" style="width:100%;justify-content:center" onclick="requestFeedReboot()">
+                🔄 Request Feed Reboot
+              </button>
+              <div id="reboot-status" style="margin-top: 10px; font-size: 12px; display: none"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/utils.js"></script>
+  <script>
+    requireAuth();
+    renderNav('feed-analyzer');
+
+    let allPosts = [];
+
+    const MOCK_FEED = [
+      { id: '1', caption: 'Beautiful sunset at Marina Beach!', category: 'nature', safety_score: 8,  date: '2025-06-01T10:00:00Z' },
+      { id: '2', caption: 'Gym gains this week looking fire', category: 'fitness', safety_score: 22, date: '2025-06-01T14:00:00Z' },
+      { id: '3', caption: 'This fight video is insane',        category: 'violence', safety_score: 84, date: '2025-06-02T09:00:00Z' },
+      { id: '4', caption: 'New recipe — avocado toast',        category: 'food',    safety_score: 5,  date: '2025-06-02T12:00:00Z' },
+      { id: '5', caption: 'Controversial take: unpopular opinion thread', category: 'opinion', safety_score: 61, date: '2025-06-03T08:00:00Z' },
+      { id: '6', caption: 'Travel vlog: Kodaikanal hills',     category: 'travel',  safety_score: 11, date: '2025-06-03T16:00:00Z' },
+      { id: '7', caption: 'Graphic road accident footage',     category: 'graphic', safety_score: 91, date: '2025-06-04T07:00:00Z' },
+      { id: '8', caption: 'Morning routine motivation',        category: 'lifestyle', safety_score: 14, date: '2025-06-04T10:00:00Z' },
+      { id: '9', caption: 'Hate speech circulating — exposing it', category: 'hate', safety_score: 75, date: '2025-06-04T15:00:00Z' },
+    ];
+
+    const ICONS = {
+      nature: '&#127956;', fitness: '&#127947;', violence: '&#128081;',
+      food: '&#127837;', opinion: '&#128172;', travel: '&#9992;',
+      graphic: '&#9888;', lifestyle: '&#127775;', hate: '&#128683;',
+      default: '&#128247;'
+    };
+
+    function loadMockFeed() {
+      allPosts = MOCK_FEED;
+      renderPosts(allPosts);
+      renderScore();
+    }
+
+    async function runAnalysis() {
+      const username = document.getElementById('insta-feed-username').value.trim();
+      
+      if (!username) {
+        toast('Please enter your Instagram username', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('analyze-btn');
+      btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+      btn.disabled = true;
+
+      try {
+        // TODO: Replace with real Instagram API call
+        const data = await apiFetch('/feed/analyze', { 
+          method: 'POST',
+          body: JSON.stringify({ instagram_username: username })
+        });
+        allPosts = data.posts;
+        renderPosts(allPosts);
+        renderScore();
+        toast('Feed analysis complete!', 'success');
+      } catch(e) {
+        toast('Using demo feed. Instagram API integration coming soon!', 'warn');
+        loadMockFeed();
+      } finally {
+        btn.innerHTML = 'Analyze Feed';
+        btn.disabled = false;
+      }
+    }
+
+    function getPostClass(score) {
+      if (score >= 80) return 'flagged';
+      if (score >= 50) return 'review';
+      return 'safe';
+    }
+
+    function renderPosts(posts) {
+      const grid = document.getElementById('post-grid');
+      document.getElementById('feed-filter').style.display = '';
+
+      grid.innerHTML = posts.map(p => {
+        const cls = getPostClass(p.safety_score);
+        const scoreColor = cls === 'flagged' ? 'var(--danger)' : cls === 'review' ? 'var(--warn)' : 'var(--accent)';
+        const icon = ICONS[p.category] || ICONS.default;
+        return `
+          <div class="post-card ${cls}">
+            <div class="post-thumb">
+              <span>${icon}</span>
+              <div class="post-score-pill" style="background:${scoreColor}20;color:${scoreColor};border:1px solid ${scoreColor}40">
+                ${p.safety_score}
+              </div>
+            </div>
+            <div class="post-meta">
+              <div class="post-caption">${p.caption}</div>
+              <div class="post-date">${fmtDate(p.date)}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderScore() {
+      const scores = allPosts.map(p => p.safety_score);
+      const overall = Math.round(scores.reduce((a,b) => a+b, 0) / scores.length);
+      const flagged = allPosts.filter(p => p.safety_score >= 80).length;
+      const review  = allPosts.filter(p => p.safety_score >= 50 && p.safety_score < 80).length;
+      const safe    = allPosts.filter(p => p.safety_score < 50).length;
+
+      document.getElementById('ring-score').textContent = overall;
+      const fill = document.getElementById('ring-fill');
+      fill.setAttribute('stroke-dasharray', overall + ' ' + (100 - overall));
+      const color = overall >= 80 ? 'var(--danger)' : overall >= 50 ? 'var(--warn)' : 'var(--accent)';
+      fill.setAttribute('stroke', color);
+
+      document.getElementById('breakdown').innerHTML = `
+        <div class="breakdown-row"><span class="text-muted">Total posts</span><strong>${allPosts.length}</strong></div>
+        <div class="breakdown-row"><span class="text-danger">Flagged (auto-reject)</span><strong class="text-danger">${flagged}</strong></div>
+        <div class="breakdown-row"><span class="text-warn">Needs review</span><strong class="text-warn">${review}</strong></div>
+        <div class="breakdown-row"><span class="text-accent">Safe</span><strong class="text-accent">${safe}</strong></div>
+      `;
+
+      if (flagged > 0) {
+        document.getElementById('reboot-section').style.display = '';
+      }
+    }
+
+    function filterPosts(filter) {
+      if (filter === 'all')     renderPosts(allPosts);
+      else if (filter === 'flagged') renderPosts(allPosts.filter(p => p.safety_score >= 80));
+      else if (filter === 'review')  renderPosts(allPosts.filter(p => p.safety_score >= 50 && p.safety_score < 80));
+      else if (filter === 'safe')    renderPosts(allPosts.filter(p => p.safety_score < 50));
+    }
+
+    async function requestFeedReboot() {
+      const username = document.getElementById('insta-feed-username').value.trim();
+      const flaggedIds = allPosts.filter(p => p.safety_score >= 80).map(p => p.id);
+      
+      if (!username) {
+        toast('Please enter your Instagram username first', 'error');
+        return;
+      }
+
+      if (!confirm(`Request feed reboot for @${username}?\n\nThis will:\n• Send a request to admin for approval\n• Remove ${flaggedIds.length} flagged post(s) if approved\n• Improve your feed quality`)) {
+        return;
+      }
+
+      const btn = document.getElementById('reboot-btn');
+      btn.innerHTML = '<span class="spinner"></span> Requesting...';
+      btn.disabled = true;
+
+      try {
+        // TODO: Send reboot request to backend
+        await apiFetch('/feed/reboot-request', { 
+          method: 'POST', 
+          body: JSON.stringify({ 
+            instagram_username: username,
+            post_ids: flaggedIds,
+            flagged_count: flaggedIds.length
+          }) 
+        });
+        
+        const statusDiv = document.getElementById('reboot-status');
+        statusDiv.style.display = 'block';
+        statusDiv.style.color = 'var(--accent)';
+        statusDiv.innerHTML = '✅ Reboot request sent to admin for approval';
+        
+        btn.style.display = 'none';
+        toast('Feed reboot request submitted successfully!', 'success');
+      } catch(e) {
+        // Mock success for now
+        const statusDiv = document.getElementById('reboot-status');
+        statusDiv.style.display = 'block';
+        statusDiv.style.color = 'var(--accent)';
+        statusDiv.innerHTML = '✅ Reboot request sent! (Demo mode - Instagram API integration pending)';
+        
+        btn.innerHTML = '✓ Request Sent';
+        btn.disabled = true;
+        toast('Feed reboot request submitted! Admin will review it.', 'success');
+      }
+    }
+
+    async function rebootFeed() {
+      const flaggedIds = allPosts.filter(p => p.safety_score >= 80).map(p => p.id);
+      try {
+        await apiFetch('/feed/reboot', { method: 'POST', body: JSON.stringify({ post_ids: flaggedIds }) });
+      } catch { /* mock ok */ }
+      allPosts = allPosts.filter(p => p.safety_score < 80);
+      renderPosts(allPosts);
+      renderScore();
+      document.getElementById('reboot-section').style.display = 'none';
+      toast('Flagged posts removed from feed', 'success');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InstaGuard — Admin Panel</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 860px) { .admin-grid { grid-template-columns: 1fr; } }
+
+    .threshold-section { grid-column: 1 / -1; }
+
+    /* Enhanced Tabs Styling */
+    .admin-tabs {
+      display: inline-flex;
+      gap: 8px;
+      padding: 6px;
+      background: var(--bg3);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .admin-tabs .tab-btn {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .admin-tabs .tab-btn:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .admin-tabs .tab-btn.active {
+      background: var(--surface2);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .admin-tabs .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .slider-row {
+      margin-bottom: 24px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .slider-name {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .slider-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .slider-desc { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      height: 6px;
+      cursor: pointer;
+    }
+
+    .threshold-preview {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .preview-zone {
+      padding: 14px;
+      border-radius: var(--radius);
+      text-align: center;
+    }
+
+    .preview-zone.safe    { background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2); }
+    .preview-zone.review  { background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); }
+    .preview-zone.danger  { background: rgba(255,75,75,0.08); border: 1px solid rgba(255,75,75,0.2); }
+
+    .preview-range { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .preview-label { font-size: 11px; color: var(--text3); }
+
+    .queue-decision {
+      display: flex;
+      gap: 8px;
+    }
+
+    .queue-note {
+      font-size: 12px;
+      color: var(--text3);
+      font-style: italic;
+      max-width: 200px;
+    }
+
+    .log-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .log-row:last-child { border-bottom: none; }
+
+    .log-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text3);
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .log-dot.admin { background: var(--accent); }
+    .log-dot.system { background: var(--accent2); }
+
+    .log-action { color: var(--text); }
+    .log-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+    .users-table tbody td:first-child { color: var(--text); }
+  </style>
+</head>
+<body>
+  <nav class="nav" id="nav"></nav>
+  <main class="main">
+    <div class="container">
+      <div class="page-header fade-up">
+        <h1>Admin panel</h1>
+        <p>Manage moderation thresholds, review queue, and user activity</p>
+      </div>
+
+      <!-- Threshold editor -->
+      <div class="card fade-up" style="margin-bottom:24px">
+        <div class="flex justify-between items-center" style="margin-bottom:24px">
+          <div class="card-title" style="margin-bottom:0">Moderation thresholds</div>
+          <button class="btn btn-primary" id="save-thresh-btn" onclick="saveThresholds()">Save changes</button>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-header">
+            <div>
+              <div class="slider-name">Auto-approve ceiling</div>
+              <div class="slider-desc">Scores at or below this are automatically approved</div>
+            </div>
+            <div class="slider-val text-accent" id="val-approve">49</div>
+          </div>
+          <input type="range" id="sl-approve" min="1" max="70" value="49" oninput="onSliderChange()">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-header">
+            <div>
+              <div class="slider-name">Auto-reject floor</div>
+              <div class="slider-desc">Scores at or above this are automatically rejected</div>
+            </div>
+            <div class="slider-val text-danger" id="val-reject">80</div>
+          </div>
+          <input type="range" id="sl-reject" min="51" max="100" value="80" oninput="onSliderChange()">
+        </div>
+
+        <div class="threshold-preview" id="thresh-preview">
+          <!-- filled by JS -->
+        </div>
+      </div>
+
+      <div class="admin-grid">
+        <!-- Enhanced Tabs -->
+        <div style="grid-column: 1 / -1">
+          <div class="admin-tabs">
+            <button class="tab-btn active" id="tab-queue" onclick="switchQueueTab('queue')">
+              📋 Moderation Queue
+            </button>
+            <button class="tab-btn" id="tab-reboot" onclick="switchQueueTab('reboot')">
+              🔄 Feed Reboot Requests
+            </button>
+          </div>
+        </div>
+
+        <!-- Moderation queue -->
+        <div class="card fade-up fade-up-d1" id="queue-card" style="grid-column: 1 / -1">
+          <div class="flex justify-between items-center" style="margin-bottom: 16px">
+            <div>
+              <div class="card-title" style="margin-bottom: 4px">Moderation Queue</div>
+              <div class="text-xs text-muted">
+                Review flagged images and feeds (scores 50-79)
+              </div>
+            </div>
+            <div class="badge badge-warn" id="queue-count">0 items</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 80px">Type</th>
+                  <th>User</th>
+                  <th style="width: 80px">Score</th>
+                  <th style="width: 140px">Date</th>
+                  <th style="width: 180px">Action</th>
+                </tr>
+              </thead>
+              <tbody id="queue-body">
+                <tr><td colspan="5" class="text-muted text-sm">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Feed Reboot Requests -->
+        <div class="card fade-up fade-up-d1" id="reboot-card" style="grid-column: 1 / -1; display: none">
+          <div class="flex justify-between items-center" style="margin-bottom: 16px">
+            <div>
+              <div class="card-title" style="margin-bottom: 4px">Feed Reboot Requests</div>
+              <div class="text-xs text-muted">
+                User requests to clean Instagram feeds from flagged content
+              </div>
+            </div>
+            <div class="badge badge-pending" id="reboot-count">0 requests</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th style="width: 140px">Instagram</th>
+                  <th style="width: 100px">Flagged</th>
+                  <th style="width: 140px">Requested</th>
+                  <th style="width: 100px">Status</th>
+                  <th style="width: 180px">Action</th>
+                </tr>
+              </thead>
+              <tbody id="reboot-body">
+                <tr><td colspan="6" class="text-muted text-sm">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Users -->
+        <div class="card fade-up fade-up-d2">
+          <div class="card-title">All users</div>
+          <div class="table-wrap">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                </tr>
+              </thead>
+              <tbody id="users-body">
+                <tr><td colspan="3" class="text-muted text-sm">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Activity log -->
+        <div class="card fade-up fade-up-d3" style="grid-column: 1 / -1">
+          <div class="card-title">Activity log</div>
+          <div id="log-body">
+            <div class="text-muted text-sm">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/utils.js"></script>
+  <script>
+    requireAdmin();
+    renderNav('admin');
+
+    function switchQueueTab(tab) {
+      document.getElementById('tab-queue').classList.toggle('active', tab === 'queue');
+      document.getElementById('tab-reboot').classList.toggle('active', tab === 'reboot');
+      document.getElementById('queue-card').style.display = tab === 'queue' ? '' : 'none';
+      document.getElementById('reboot-card').style.display = tab === 'reboot' ? '' : 'none';
+
+      if (tab === 'reboot') {
+        loadRebootRequests();
+      }
+    }
+
+    function onSliderChange() {
+      const approve = +document.getElementById('sl-approve').value;
+      const reject  = +document.getElementById('sl-reject').value;
+
+      // Enforce constraint: approve < reject
+      if (approve >= reject) {
+        document.getElementById('sl-approve').value = reject - 1;
+      }
+
+      const a = +document.getElementById('sl-approve').value;
+      const r = +document.getElementById('sl-reject').value;
+
+      document.getElementById('val-approve').textContent = a;
+      document.getElementById('val-reject').textContent  = r;
+
+      document.getElementById('thresh-preview').innerHTML = `
+        <div class="preview-zone safe">
+          <div class="preview-range text-accent">0–${a}</div>
+          <div class="preview-label">Auto-approved</div>
+        </div>
+        <div class="preview-zone review">
+          <div class="preview-range text-warn">${a+1}–${r-1}</div>
+          <div class="preview-label">Manual review</div>
+        </div>
+        <div class="preview-zone danger">
+          <div class="preview-range text-danger">${r}–100</div>
+          <div class="preview-label">Auto-rejected</div>
+        </div>`;
+    }
+
+    onSliderChange(); // init preview
+
+    async function saveThresholds() {
+      const approve = +document.getElementById('sl-approve').value;
+      const reject  = +document.getElementById('sl-reject').value;
+      const btn = document.getElementById('save-thresh-btn');
+      btn.innerHTML = '<span class="spinner"></span>';
+      btn.disabled = true;
+
+      try {
+        await apiFetch('/admin/thresholds', {
+          method: 'PUT',
+          body: JSON.stringify({
+            auto_approve_max: approve,
+            manual_review_min: approve + 1,
+            auto_reject_min: reject
+          })
+        });
+        toast('Thresholds updated', 'success');
+      } catch(e) {
+        toast(e.message, 'error');
+      } finally {
+        btn.innerHTML = 'Save changes';
+        btn.disabled = false;
+      }
+    }
+
+    async function decide(queueId, decision) {
+      try {
+        await apiFetch('/admin/queue/' + queueId + '/decide', {
+          method: 'POST',
+          body: JSON.stringify({ decision })
+        });
+        toast('Decision saved: ' + decision, 'success');
+        loadQueue();
+      } catch(e) {
+        toast(e.message, 'error');
+      }
+    }
+
+    async function loadQueue() {
+      try {
+        const data = await apiFetch('/admin/queue');
+        const body = document.getElementById('queue-body');
+        const count = document.getElementById('queue-count');
+        
+        if (!data.items.length) {
+          body.innerHTML = '<tr><td colspan="5" class="text-center text-muted text-sm" style="padding: 32px">No items in queue</td></tr>';
+          count.textContent = '0 items';
+          count.className = 'badge badge-safe';
+          return;
+        }
+
+        count.textContent = `${data.items.length} item${data.items.length !== 1 ? 's' : ''}`;
+        count.className = 'badge badge-warn';
+
+        body.innerHTML = data.items.map(item => {
+          const s = scoreStatus(item.score);
+          const typeIcon = item.ref_type === 'image' ? '🖼️' : '📱';
+          return `
+            <tr style="border-bottom: 1px solid var(--border)">
+              <td>
+                <span style="font-size: 18px; margin-right: 4px">${typeIcon}</span>
+                <span class="badge ${item.ref_type === 'image' ? 'badge-pending' : 'badge-review'}" style="font-size: 11px">
+                  ${item.ref_type}
+                </span>
+              </td>
+              <td class="text-sm">${item.user_email || 'demo user'}</td>
+              <td><span class="badge ${s.badge}">${item.score}</span></td>
+              <td class="text-xs text-muted">${fmtDate(item.created_at || new Date().toISOString())}</td>
+              <td>
+                <div style="display: flex; gap: 6px">
+                  <button class="btn btn-primary" style="padding:6px 12px;font-size:12px; flex: 1" onclick="decide('${item.id}','approved')">
+                    ✓ Approve
+                  </button>
+                  <button class="btn btn-danger" style="padding:6px 12px;font-size:12px; flex: 1" onclick="decide('${item.id}','rejected')">
+                    ✗ Reject
+                  </button>
+                </div>
+              </td>
+            </tr>`;
+        }).join('');
+      } catch(e) {
+        document.getElementById('queue-body').innerHTML = '<tr><td colspan="5" class="text-center text-muted text-sm" style="padding: 32px">No items in queue</td></tr>';
+        document.getElementById('queue-count').textContent = '0 items';
+        document.getElementById('queue-count').className = 'badge badge-safe';
+      }
+    }
+
+    async function loadRebootRequests() {
+      try {
+        const data = await apiFetch('/admin/reboot-requests');
+        const body = document.getElementById('reboot-body');
+        const count = document.getElementById('reboot-count');
+        
+        if (!data.requests || !data.requests.length) {
+          body.innerHTML = '<tr><td colspan="6" class="text-center text-muted text-sm" style="padding: 32px">No reboot requests</td></tr>';
+          count.textContent = '0 requests';
+          count.className = 'badge badge-safe';
+          return;
+        }
+
+        const pendingCount = data.requests.filter(r => r.status === 'pending').length;
+        count.textContent = `${pendingCount} pending`;
+        count.className = pendingCount > 0 ? 'badge badge-warn' : 'badge badge-safe';
+
+        body.innerHTML = data.requests.map(req => {
+          const statusColors = {
+            pending: 'badge-warn',
+            approved: 'badge-safe',
+            rejected: 'badge-danger'
+          };
+          
+          const statusIcons = {
+            pending: '⏳',
+            approved: '✅',
+            rejected: '❌'
+          };
+          
+          return `
+            <tr style="border-bottom: 1px solid var(--border)">
+              <td class="text-sm">${req.user_email}</td>
+              <td>
+                <a href="https://instagram.com/${req.instagram_username.replace('@', '')}" target="_blank" 
+                   style="color:var(--accent); text-decoration: none; font-weight: 500; font-size: 13px">
+                  @${req.instagram_username.replace('@', '')}
+                </a>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-danger">${req.flagged_count}</span>
+              </td>
+              <td class="text-xs text-muted">${fmtDate(req.requested_at)}</td>
+              <td>
+                <span class="badge ${statusColors[req.status]}">
+                  ${statusIcons[req.status]} ${req.status}
+                </span>
+              </td>
+              <td>
+                ${req.status === 'pending' ? `
+                  <div style="display: flex; gap: 6px">
+                    <button class="btn btn-primary" style="padding:6px 12px;font-size:12px; flex: 1" onclick="approveReboot('${req.id}')">
+                      ✓ Approve
+                    </button>
+                    <button class="btn btn-danger" style="padding:6px 12px;font-size:12px; flex: 1" onclick="rejectReboot('${req.id}')">
+                      ✗ Reject
+                    </button>
+                  </div>
+                ` : `<span class="text-muted text-xs">Processed</span>`}
+              </td>
+            </tr>`;
+        }).join('');
+      } catch(e) {
+        document.getElementById('reboot-body').innerHTML = '<tr><td colspan="6" class="text-center text-muted text-sm" style="padding: 32px">Could not load requests</td></tr>';
+        document.getElementById('reboot-count').textContent = '0 requests';
+        document.getElementById('reboot-count').className = 'badge badge-safe';
+      }
+    }
+
+    async function approveReboot(requestId) {
+      if (!confirm('Approve this feed reboot request? This will remove flagged content from the user\'s feed.')) return;
+
+      try {
+        await apiFetch('/admin/reboot-requests/' + requestId + '/approve', { method: 'POST' });
+        toast('Feed reboot approved!', 'success');
+        loadRebootRequests();
+      } catch(e) {
+        toast(e.message, 'error');
+      }
+    }
+
+    async function rejectReboot(requestId) {
+      if (!confirm('Reject this feed reboot request?')) return;
+
+      try {
+        await apiFetch('/admin/reboot-requests/' + requestId + '/reject', { method: 'POST' });
+        toast('Feed reboot rejected', 'info');
+        loadRebootRequests();
+      } catch(e) {
+        toast(e.message, 'error');
+      }
+    }
+
+    async function loadUsers() {
+      try {
+        const data = await apiFetch('/admin/users');
+        const body = document.getElementById('users-body');
+        body.innerHTML = data.users.map(u => `
+          <tr>
+            <td>${u.email}</td>
+            <td><span class="badge ${u.role === 'admin' ? 'badge-review' : 'badge-pending'}">${u.role}</span></td>
+            <td class="text-xs text-muted">${fmtDate(u.created_at)}</td>
+          </tr>`).join('');
+      } catch { /* silent */ }
+    }
+
+    async function loadLogs() {
+      try {
+        const data = await apiFetch('/admin/logs');
+        const body = document.getElementById('log-body');
+        if (!data.logs.length) {
+          body.innerHTML = '<div class="text-muted text-sm">No logs yet.</div>';
+          return;
+        }
+        body.innerHTML = data.logs.map(l => `
+          <div class="log-row">
+            <div class="log-dot ${l.actor_role === 'admin' ? 'admin' : 'system'}"></div>
+            <div>
+              <div class="log-action">${l.action}</div>
+              <div class="log-time">${l.actor_email} — ${fmtDate(l.logged_at)}</div>
+            </div>
+          </div>`).join('');
+      } catch { /* silent */ }
+    }
+
+    async function loadThresholds() {
+      try {
+        const data = await apiFetch('/admin/thresholds');
+        document.getElementById('sl-approve').value = data.auto_approve_max;
+        document.getElementById('sl-reject').value  = data.auto_reject_min;
+        onSliderChange();
+      } catch { /* use defaults */ }
+    }
+
+    loadThresholds();
+    loadQueue();
+    loadUsers();
+    loadLogs();
+  </script>
+</body>
+</html>

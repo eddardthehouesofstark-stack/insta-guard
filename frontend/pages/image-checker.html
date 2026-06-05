@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InstaGuard — Image Checker</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .checker-layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) { .checker-layout { grid-template-columns: 1fr; } }
+
+    .drop-zone {
+      border: 2px dashed var(--border-bright);
+      border-radius: var(--radius-lg);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg3);
+      position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(0,212,170,0.04);
+    }
+
+    .drop-zone input[type=file] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+    }
+
+    .drop-icon {
+      width: 48px; height: 48px;
+      margin: 0 auto 16px;
+      border: 2px solid var(--border-bright);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .drop-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .drop-sub { font-size: 13px; color: var(--text3); }
+
+    .preview-img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: var(--radius);
+      margin-top: 16px;
+      display: none;
+    }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+    }
+
+    .result-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      color: var(--text3);
+      text-align: center;
+      gap: 12px;
+    }
+
+    .result-empty-icon {
+      font-size: 40px;
+      opacity: 0.3;
+    }
+
+    .verdict-banner {
+      padding: 20px;
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .verdict-banner.approved { background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2); }
+    .verdict-banner.rejected { background: rgba(255,75,75,0.08); border: 1px solid rgba(255,75,75,0.2); }
+    .verdict-banner.review   { background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); }
+
+    .verdict-icon { font-size: 28px; }
+
+    .verdict-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .labels-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .label-chip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .label-name { color: var(--text2); }
+    .label-score { color: var(--text3); font-size: 12px; }
+
+    .history-list { margin-top: 32px; }
+  </style>
+</head>
+<body>
+  <nav class="nav" id="nav"></nav>
+  <main class="main">
+    <div class="container">
+      <div class="page-header fade-up">
+        <h1>Image checker</h1>
+        <p>Upload an image to check its safety score using AI content analysis</p>
+      </div>
+
+      <div class="checker-layout">
+        <!-- Left: upload -->
+        <div class="fade-up fade-up-d1">
+          <div class="card">
+            <div class="card-title">Upload image</div>
+
+            <!-- Instagram Username Input -->
+            <div class="form-group">
+              <label class="form-label">Instagram Username (optional)</label>
+              <input 
+                class="form-input" 
+                id="insta-username" 
+                type="text" 
+                placeholder="@yourhandle or username"
+                style="margin-bottom: 16px"
+              >
+              <div class="text-xs text-muted" style="margin-top: -12px; margin-bottom: 12px">
+                If approved, you can post directly to Instagram
+              </div>
+            </div>
+
+            <div class="drop-zone" id="drop-zone">
+              <input type="file" id="file-input" accept="image/*" onchange="handleFile(this.files[0])">
+              <div class="drop-icon">+</div>
+              <div class="drop-title">Drop image here</div>
+              <div class="drop-sub">or click to browse — JPG, PNG, WEBP</div>
+            </div>
+
+            <img class="preview-img" id="preview" alt="Preview">
+
+            <div style="margin-top:16px;display:flex;gap:10px">
+              <button class="btn btn-primary" id="check-btn" onclick="runCheck()" disabled style="flex:1;justify-content:center">
+                Analyze image
+              </button>
+              <button class="btn btn-secondary" onclick="resetChecker()">Clear</button>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div class="card history-list">
+            <div class="card-title">Your history</div>
+            <div id="history-body">
+              <div class="text-muted text-sm">No checks yet.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: result -->
+        <div class="result-card fade-up fade-up-d2" id="result-panel">
+          <div class="result-empty" id="result-empty">
+            <div class="result-empty-icon">&#128247;</div>
+            <div>Upload an image to see the safety analysis</div>
+          </div>
+          <div id="result-content" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/utils.js"></script>
+  <script>
+    requireAuth();
+    renderNav('image-checker');
+
+    let selectedFile = null;
+
+    // Drag and drop
+    const dz = document.getElementById('drop-zone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return toast('Please select an image file', 'error');
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.getElementById('preview');
+        img.src = e.target.result;
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+      document.getElementById('check-btn').disabled = false;
+    }
+
+    function resetChecker() {
+      selectedFile = null;
+      document.getElementById('preview').style.display = 'none';
+      document.getElementById('file-input').value = '';
+      document.getElementById('check-btn').disabled = true;
+      document.getElementById('result-empty').style.display = 'flex';
+      document.getElementById('result-content').style.display = 'none';
+    }
+
+    async function runCheck() {
+      if (!selectedFile) return;
+      const btn = document.getElementById('check-btn');
+      btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+      btn.disabled = true;
+
+      try {
+        const form = new FormData();
+        form.append('file', selectedFile);
+
+        const token = getToken();
+        const res = await fetch('http://localhost:8000/images/check', {
+          method: 'POST',
+          headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+          body: form
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Check failed');
+        }
+
+        const data = await res.json();
+        renderResult(data);
+        loadHistory();
+      } catch(e) {
+        toast(e.message, 'error');
+      } finally {
+        btn.innerHTML = 'Analyze image';
+        btn.disabled = false;
+      }
+    }
+
+    function renderResult(d) {
+      const status = scoreStatus(d.safety_score);
+      const cls = scoreClass(d.safety_score);
+      const verdictMap = { safe: 'approved', warn: 'review', danger: 'rejected' };
+      const labelMap  = { safe: 'Content approved', warn: 'Manual review required', danger: 'Content rejected' };
+      const iconMap   = { safe: '&#10003;', warn: '&#9888;', danger: '&#10005;' };
+
+      const labels = d.vision_labels || [];
+      const labelsHtml = labels.length ? `
+        <div style="margin-top:20px">
+          <div class="text-xs text-muted mb-16" style="margin-bottom:10px">Detected labels</div>
+          <div class="labels-grid">
+            ${labels.map(l => `
+              <div class="label-chip">
+                <span class="label-name">${l.name}</span>
+                <span class="label-score">${Math.round(l.confidence * 100)}%</span>
+              </div>`).join('')}
+          </div>
+        </div>` : '';
+
+      // Show "Post to Instagram" button if approved and username provided
+      const instaUsername = document.getElementById('insta-username').value.trim();
+      const postButton = (cls === 'safe' && instaUsername) ? `
+        <button class="btn btn-primary" onclick="postToInstagram('${d.id}')" style="width:100%;justify-content:center;margin-top:20px">
+          <span style="margin-right:8px">📸</span> Post to Instagram
+        </button>
+      ` : '';
+
+      // Show warning if rejected and username provided
+      const rejectWarning = (cls === 'danger' && instaUsername) ? `
+        <div style="margin-top:20px;padding:14px;background:rgba(255,75,75,0.08);border:1px solid rgba(255,75,75,0.2);border-radius:8px;font-size:13px;color:var(--danger)">
+          ⚠️ This image cannot be posted to Instagram due to safety concerns.
+        </div>
+      ` : '';
+
+      document.getElementById('result-empty').style.display = 'none';
+      document.getElementById('result-content').style.display = 'block';
+      document.getElementById('result-content').innerHTML = `
+        <div class="verdict-banner ${verdictMap[cls]}">
+          <div class="verdict-icon">${iconMap[cls]}</div>
+          <div>
+            <div class="verdict-title" style="color:var(--${cls === 'safe' ? 'accent' : cls === 'warn' ? 'warn' : 'danger'})">${labelMap[cls]}</div>
+            <div class="text-xs text-muted">Safety score: ${d.safety_score}/100</div>
+          </div>
+        </div>
+        ${renderScoreBar(d.safety_score)}
+        ${labelsHtml}
+        ${postButton}
+        ${rejectWarning}
+        <div style="margin-top:20px;font-size:12px;color:var(--text3)">
+          Checked at ${fmtDate(d.checked_at)}
+        </div>`;
+    }
+
+    async function loadHistory() {
+      try {
+        const data = await apiFetch('/images/history');
+        const body = document.getElementById('history-body');
+        if (!data.items.length) {
+          body.innerHTML = '<div class="text-muted text-sm">No checks yet.</div>';
+          return;
+        }
+        body.innerHTML = data.items.map(h => {
+          const s = scoreStatus(h.safety_score);
+          return `
+            <div class="activity-row">
+              <div>
+                <div class="text-sm">${h.filename || 'Image'}</div>
+                <div class="text-xs text-muted">${fmtDate(h.checked_at)}</div>
+              </div>
+              <span class="badge ${s.badge}">${h.safety_score}</span>
+            </div>`;
+        }).join('');
+      } catch { /* silent */ }
+    }
+
+    async function postToInstagram(imageId) {
+      const username = document.getElementById('insta-username').value.trim();
+      if (!username) {
+        toast('Please enter your Instagram username', 'error');
+        return;
+      }
+
+      if (!confirm(`Post this image to Instagram account @${username}?`)) return;
+
+      try {
+        toast('Instagram posting feature coming soon! For now, this is a placeholder.', 'info');
+        // TODO: Implement Instagram Graph API posting
+        // const res = await apiFetch('/instagram/post', {
+        //   method: 'POST',
+        //   body: JSON.stringify({ image_id: imageId, username })
+        // });
+        // toast('Posted to Instagram successfully!', 'success');
+      } catch(e) {
+        toast(e.message, 'error');
+      }
+    }
+
+    loadHistory();
+  </script>
+</body>
+</html>

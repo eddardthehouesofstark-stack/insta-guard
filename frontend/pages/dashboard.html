@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InstaGuard — Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 80px; height: 80px;
+      background: var(--accent-color, var(--accent));
+      opacity: 0.05;
+      border-radius: 50%;
+      transform: translate(20px, -20px);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+
+    .activity-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .activity-row:last-child { border-bottom: none; }
+
+    .activity-type {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    .threshold-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .threshold-row:last-child { border-bottom: none; }
+
+    .threshold-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .quick-links {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .quick-link {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 18px 20px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+
+    .quick-link:hover {
+      border-color: var(--accent);
+      background: rgba(0,212,170,0.05);
+    }
+
+    .quick-link-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .quick-link-desc {
+      font-size: 12px;
+      color: var(--text3);
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav" id="nav"></nav>
+  <main class="main">
+    <div class="container">
+      <div class="page-header fade-up">
+        <h1>Dashboard</h1>
+        <p id="greeting">Welcome back</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card fade-up fade-up-d1">
+          <div class="stat-label">Images checked</div>
+          <div class="stat-value text-accent" id="stat-images">--</div>
+          <div class="stat-sub">All time</div>
+        </div>
+        <div class="stat-card fade-up fade-up-d2">
+          <div class="stat-label">Feed analyses</div>
+          <div class="stat-value" style="color:var(--accent2)" id="stat-feeds">--</div>
+          <div class="stat-sub">All time</div>
+        </div>
+        <div class="stat-card fade-up fade-up-d3">
+          <div class="stat-label">Auto-rejected</div>
+          <div class="stat-value text-danger" id="stat-rejected">--</div>
+          <div class="stat-sub">Score ≥ 80</div>
+        </div>
+        <div class="stat-card fade-up fade-up-d4">
+          <div class="stat-label">Pending review</div>
+          <div class="stat-value text-warn" id="stat-pending">--</div>
+          <div class="stat-sub">Score 50–79</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="card fade-up">
+            <div class="card-title">Recent activity</div>
+            <div id="activity-list">
+              <div class="text-muted text-sm">Loading...</div>
+            </div>
+          </div>
+
+          <div class="card fade-up" style="margin-top:20px">
+            <div class="card-title">Quick actions</div>
+            <div class="quick-links">
+              <a class="quick-link" href="image-checker.html">
+                <span class="quick-link-title">Check image</span>
+                <span class="quick-link-desc">Upload and scan a photo</span>
+              </a>
+              <a class="quick-link" href="feed-analyzer.html">
+                <span class="quick-link-title">Analyze feed</span>
+                <span class="quick-link-desc">Review your content feed</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card fade-up">
+            <div class="card-title">Active thresholds</div>
+            <div id="threshold-display">
+              <div class="threshold-row">
+                <div>
+                  <div style="color:var(--text)">Auto-approved</div>
+                  <div class="text-xs text-muted">Score below this</div>
+                </div>
+                <div class="threshold-val text-accent" id="t-approve">--</div>
+              </div>
+              <div class="threshold-row">
+                <div>
+                  <div style="color:var(--text)">Manual review</div>
+                  <div class="text-xs text-muted">Score in this range</div>
+                </div>
+                <div class="threshold-val text-warn" id="t-review">--</div>
+              </div>
+              <div class="threshold-row">
+                <div>
+                  <div style="color:var(--text)">Auto-rejected</div>
+                  <div class="text-xs text-muted">Score above this</div>
+                </div>
+                <div class="threshold-val text-danger" id="t-reject">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/utils.js"></script>
+  <script>
+    // Handle OAuth callback from Supabase (Google Sign-In)
+    async function handleOAuthCallback() {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        
+        if (accessToken) {
+          // Store the Supabase token
+          localStorage.setItem('ig_token', accessToken);
+          
+          // Fetch user info from backend to get the correct role
+          try {
+            const userData = await apiFetch('/auth/me');
+            setUser(userData);
+            
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            toast('Successfully signed in with Google!', 'success');
+          } catch (e) {
+            console.error('Error fetching user data:', e);
+            // Fallback: fetch from Supabase directly
+            try {
+              const supabaseUrl = 'https://mrbmrckpghhmuwdvaoxl.supabase.co';
+              const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yYm1yY2twZ2hobXV3ZHZhb3hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NDg2NTUsImV4cCI6MjA5NjIyNDY1NX0.daZNMo3_78jIKpxbi7rv7JctWHkicdqANy72Q4Wk1Ss'
+                }
+              });
+              
+              if (response.ok) {
+                const supabaseUser = await response.json();
+                // Fetch role from database
+                const dbResponse = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${supabaseUser.id}&select=*`, {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yYm1yY2twZ2hobXV3ZHZhb3hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NDg2NTUsImV4cCI6MjA5NjIyNDY1NX0.daZNMo3_78jIKpxbi7rv7JctWHkicdqANy72Q4Wk1Ss'
+                  }
+                });
+                
+                if (dbResponse.ok) {
+                  const dbUsers = await dbResponse.json();
+                  if (dbUsers && dbUsers.length > 0) {
+                    const user = {
+                      id: dbUsers[0].id,
+                      email: dbUsers[0].email,
+                      role: dbUsers[0].role
+                    };
+                    setUser(user);
+                  }
+                }
+              }
+              
+              // Clean up URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+              toast('Successfully signed in with Google!', 'success');
+            } catch (e2) {
+              console.error('Error fetching from Supabase:', e2);
+            }
+          }
+        }
+      }
+    }
+
+    // Run OAuth handler first
+    handleOAuthCallback().then(() => {
+      const user = requireAuth();
+      renderNav('dashboard');
+      document.getElementById('greeting').textContent = 'Welcome back, ' + user.email;
+      loadDashboard();
+    });
+
+    async function loadDashboard() {
+      try {
+        const [stats, thresholds, activity] = await Promise.all([
+          apiFetch('/dashboard/stats'),
+          apiFetch('/admin/thresholds'),
+          apiFetch('/dashboard/activity')
+        ]);
+
+        document.getElementById('stat-images').textContent   = stats.total_images;
+        document.getElementById('stat-feeds').textContent    = stats.total_feeds;
+        document.getElementById('stat-rejected').textContent = stats.total_rejected;
+        document.getElementById('stat-pending').textContent  = stats.total_pending;
+
+        document.getElementById('t-approve').textContent = '< ' + thresholds.auto_approve_max;
+        document.getElementById('t-review').textContent  = thresholds.manual_review_min + '–' + (thresholds.auto_reject_min - 1);
+        document.getElementById('t-reject').textContent  = '≥ ' + thresholds.auto_reject_min;
+
+        const list = document.getElementById('activity-list');
+        if (!activity.items.length) {
+          list.innerHTML = '<div class="text-muted text-sm">No activity yet.</div>';
+          return;
+        }
+        list.innerHTML = activity.items.map(a => {
+          const s = scoreStatus(a.score);
+          return `
+            <div class="activity-row">
+              <div>
+                <div>${a.ref_type === 'image' ? 'Image check' : 'Feed analysis'}</div>
+                <div class="activity-type">${fmtDate(a.created_at)}</div>
+              </div>
+              <span class="badge ${s.badge}">${s.label}</span>
+            </div>`;
+        }).join('');
+      } catch(e) {
+        toast('Could not load dashboard: ' + e.message, 'error');
+      }
+    }
+
+    async function loadDashboard() {
+      try {
+        const [stats, thresholds, activity] = await Promise.all([
+          apiFetch('/dashboard/stats'),
+          apiFetch('/admin/thresholds'),
+          apiFetch('/dashboard/activity')
+        ]);
+
+        document.getElementById('stat-images').textContent   = stats.total_images;
+        document.getElementById('stat-feeds').textContent    = stats.total_feeds;
+        document.getElementById('stat-rejected').textContent = stats.total_rejected;
+        document.getElementById('stat-pending').textContent  = stats.total_pending;
+
+        document.getElementById('t-approve').textContent = '< ' + thresholds.auto_approve_max;
+        document.getElementById('t-review').textContent  = thresholds.manual_review_min + '–' + (thresholds.auto_reject_min - 1);
+        document.getElementById('t-reject').textContent  = '≥ ' + thresholds.auto_reject_min;
+
+        const list = document.getElementById('activity-list');
+        if (!activity.items.length) {
+          list.innerHTML = '<div class="text-muted text-sm">No activity yet.</div>';
+          return;
+        }
+        list.innerHTML = activity.items.map(a => {
+          const s = scoreStatus(a.score);
+          return `
+            <div class="activity-row">
+              <div>
+                <div>${a.ref_type === 'image' ? 'Image check' : 'Feed analysis'}</div>
+                <div class="activity-type">${fmtDate(a.created_at)}</div>
+              </div>
+              <span class="badge ${s.badge}">${s.label}</span>
+            </div>`;
+        }).join('');
+      } catch(e) {
+        toast('Could not load dashboard: ' + e.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>
