@@ -8,8 +8,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # Local development
-        "https://*.vercel.app",   # Vercel deployments
-        "*"  # Allow all for now - restrict in production
+        "https://insta-guard-lyart.vercel.app",  # Production
+        "https://*.vercel.app",   # Vercel preview deployments
     ],
     allow_credentials=True,
     allow_methods=["*"],
