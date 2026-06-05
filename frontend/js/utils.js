@@ -5,7 +5,20 @@
 
 const API = window.location.hostname === 'localhost' 
   ? 'http://localhost:8000' 
-  : 'https://your-backend-url.onrender.com'; // UPDATE THIS after deploying backend
+  : 'https://insta-guard.onrender.com';
+
+// Keep backend alive on Render free tier
+if (window.location.hostname !== 'localhost') {
+  // Ping backend every 10 minutes to prevent spin-down
+  setInterval(async () => {
+    try {
+      await fetch(`${API}/`);
+      console.log('[Keep-Alive] Backend pinged successfully');
+    } catch (e) {
+      console.log('[Keep-Alive] Ping failed:', e.message);
+    }
+  }, 10 * 60 * 1000); // 10 minutes
+} // UPDATE THIS after deploying backend
 
 // ---- Auth helpers ------------------------------------------
 
