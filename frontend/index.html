@@ -237,8 +237,8 @@
     async function signInWithGoogle() {
       // Redirect to Supabase Google OAuth
       const supabaseUrl = 'https://mrbmrckpghhmuwdvaoxl.supabase.co';
-      const redirectUrl = window.location.origin + '/pages/dashboard.html';
-      window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${redirectUrl}`;
+      const redirectUrl = 'https://insta-guard-lyart.vercel.app/pages/dashboard.html';
+      window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
     }
 
     async function doSignup() {
