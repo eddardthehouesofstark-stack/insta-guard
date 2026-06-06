@@ -253,11 +253,33 @@
         form.append('file', selectedFile);
 
         const token = getToken();
-        const res = await fetch(`${API}/images/check`, {
-          method: 'POST',
-          headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-          body: form
-        });
+        
+        // First attempt
+        let res;
+        try {
+          res = await fetch(`${API}/images/check`, {
+            method: 'POST',
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+            body: form
+          });
+        } catch (fetchError) {
+          // Backend might be sleeping, show message and retry
+          console.log('[Image Check] First attempt failed, backend might be waking up');
+          toast('Backend is waking up, please wait 30 seconds...', 'info');
+          btn.innerHTML = '<span class="spinner"></span> Waking up backend...';
+          
+          // Wait 30 seconds for backend to wake up
+          await new Promise(resolve => setTimeout(resolve, 30000));
+          
+          btn.innerHTML = '<span class="spinner"></span> Retrying analysis...';
+          
+          // Retry the request
+          res = await fetch(`${API}/images/check`, {
+            method: 'POST',
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+            body: form
+          });
+        }
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -267,6 +289,7 @@
         const data = await res.json();
         renderResult(data);
         loadHistory();
+        toast('Image analyzed successfully!', 'success');
       } catch(e) {
         toast(e.message, 'error');
       } finally {

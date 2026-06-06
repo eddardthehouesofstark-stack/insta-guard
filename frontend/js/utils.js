@@ -8,17 +8,34 @@ const API = window.location.hostname === 'localhost'
   : 'https://insta-guard.onrender.com';
 
 // Keep backend alive on Render free tier
+let backendStatus = 'unknown';
+
 if (window.location.hostname !== 'localhost') {
-  // Ping backend every 10 minutes to prevent spin-down
-  setInterval(async () => {
-    try {
-      await fetch(`${API}/`);
-      console.log('[Keep-Alive] Backend pinged successfully');
-    } catch (e) {
-      console.log('[Keep-Alive] Ping failed:', e.message);
-    }
-  }, 10 * 60 * 1000); // 10 minutes
-} // UPDATE THIS after deploying backend
+  // Ping backend immediately on page load
+  pingBackend();
+  
+  // Ping backend every 5 minutes to prevent spin-down
+  setInterval(pingBackend, 5 * 60 * 1000); // 5 minutes
+}
+
+async function pingBackend() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    await fetch(`${API}/`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    backendStatus = 'awake';
+    console.log('[Keep-Alive] Backend is awake ✓');
+  } catch (e) {
+    backendStatus = 'sleeping';
+    console.log('[Keep-Alive] Backend might be sleeping:', e.message);
+  }
+}
+
+function getBackendStatus() {
+  return backendStatus;
+}
 
 // ---- Auth helpers ------------------------------------------
 
@@ -52,11 +69,28 @@ async function apiFetch(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(API + path, { ...opts, headers });
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) throw new Error(data.detail || 'Request failed');
-  return data;
+  // First attempt
+  try {
+    const res = await fetch(API + path, { ...opts, headers, timeout: 30000 });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Request failed');
+    return data;
+  } catch (error) {
+    // If fetch fails and we're in production, backend might be sleeping
+    if (window.location.hostname !== 'localhost' && error.message.includes('fetch')) {
+      console.log('[API] Backend might be waking up, retrying...');
+      toast('Backend is waking up, please wait...', 'info');
+      
+      // Wait 3 seconds and retry
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      const res = await fetch(API + path, { ...opts, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Request failed');
+      return data;
+    }
+    throw error;
+  }
 }
 
 // ---- Toast -------------------------------------------------
