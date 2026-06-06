@@ -6,14 +6,11 @@ app = FastAPI(title="InstaGuard API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Local development
-        "https://insta-guard-lyart.vercel.app",  # Production
-        "https://*.vercel.app",   # Vercel preview deployments
-    ],
+    allow_origins=["*"],  # Allow all origins - change this in production to specific domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.include_router(auth.router,      prefix="/auth",      tags=["Auth"])
