@@ -253,7 +253,7 @@
         form.append('file', selectedFile);
 
         const token = getToken();
-        const res = await fetch('http://localhost:8000/images/check', {
+        const res = await fetch(`${API}/images/check`, {
           method: 'POST',
           headers: token ? { 'Authorization': 'Bearer ' + token } : {},
           body: form
